@@ -1,4 +1,4 @@
-# 各種申請自動化ツール
+# アカウント申請自動化ツール
 
 ### 使用したサードパーティ製ライブラリ
 * bottle
@@ -12,29 +12,19 @@
 ### ファイル構成
 ```
 .
-├── approve.py
-├── database.py
-├── entry.py
-├── ldap.py
-├── message.py
-├── valid.py
+├── account.py
 └── views
-    ├── check.tpl
     ├── confirm.tpl
-    ├── error.tpl
     ├── finish.tpl
-    ├── index.tpl
-    └── send.tpl
+    ├── for_user.tpl
+    ├── form.tpl
+    ├── identify.tpl
+    └── ldif.tpl
 ```
 
 ***
 
 ### テスト方法
 申請フォーム  
-`$ python entry.py`  
-`http://localhost:8080`
-
-
-承認UI  
-`$ python approve.py`  
-`http://localhost:8080/check/[ユーザ名]`
+`$ python ./entry.py`  
+`http://localhost:8080/form`
