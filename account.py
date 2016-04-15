@@ -87,37 +87,39 @@ class Validator(object):
 
     def default(self, data):
         errors = []
+        # フォームの空欄
         for key, value in data.items():
             if key == 'agreement':
                 pass
             elif not value:
                 errors.append(self.error_cases['blank'])
                 break
-
+        # 学籍番号
         if not re.match('^[0-9]{8}$', data['student_number']):
             errors.append(self.error_cases['student_number'])
-
+        # ISCアカウント
         if not re.match('^[a-z][0-9]{6}[a-z]$', data['isc_account']):
             errors.append(self.error_cases['isc_account'])
-
+        # 共用計算機アカウント
         if not re.match('^[a-z][a-z0-9]{2,7}$', data['club_account']):
             errors.append(self.error_cases['club_account'])
-
+        # パスワード
         ptn1 = '^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^a-zA-Z0-9])[ -~]{8,}$'
         ptn2 = '^[ -~]{16,}$'
         if not (re.match(ptn1, data['password']) or
                 re.match(ptn2, data['password'])):
             errors.append(self.error_cases['password'])
         else:
+            # パスワード（確認）
             if not data['password'] == data['password_confirm']:
                 errors.append(self.error_cases['password_confirm'])
-
+        # 同意チェック
         if not data['agreement'] == 'checked':
             errors.append(self.error_cases['agreement'])
-
+        # エラーメッセージをリスト化
         for error in errors:
             self.error_msg['msg'] += '<li>' + error + '</li>'
-
+        # エラーメッセージを表示
         if self.error_msg['msg']:
             self.error_msg['display'] = 'block'
 
@@ -129,31 +131,39 @@ class Validator(object):
 def form_get():
     v = Validator()
     try:
+        # セッション情報がある
         session = bottle.request.environ.get('beaker.session')
         session['is']
         return bottle.template('form', **v.error_msg, **session)
     except KeyError:
+        # セッション情報がない
         data = {key: '' for key in keys}
         return bottle.template('form', **v.error_msg, **data)
 
 
 @bottle.route('/form', method='POST')
 def form_post():
+    # ポストデータを取得
     data = {key: '' for key in keys}
     for key, value in bottle.request.forms.decode().items():
         if 'password' in key:
+            # パスワードは生入力を使用
             data[key] = value
         else:
             data[key] = value.strip()
 
     v = Validator()
     if v.validate(data):
+        # バリデーションエラー
         return bottle.template('form', **v.error_msg, **data)
     else:
+        # バリデーションパス
+        # パスワードの暗号化
         h = hashlib.sha1()
         h.update(data['password'].encode())
         data['shadow_password'] = '{SHA}' + b64encode(h.digest()).decode()
 
+        # 申請日時と申請元アドレスを取得
         tmp = datetime.now(pytz.timezone('Asia/Tokyo'))
         data['format_time'] = tmp.strftime('%Y-%m-%d %H:%M:%S %z')
         data['remote_addr'] = bottle.request.remote_addr
@@ -162,12 +172,14 @@ def form_post():
         except OSError:
             data['remote_host'] = '-----'
 
+        # セッションに保存
         session = bottle.request.environ.get('beaker.session')
         for key, value in data.items():
             session[key] = value
         else:
             session['is'] = None
             session.save()
+            # 確認画面にリダイレクト
             bottle.redirect('/confirm')
 
 
@@ -180,6 +192,7 @@ def confirm_get():
 @bottle.route('/confirm', method='POST')
 def confirm_post():
     session = bottle.request.environ.get('beaker.session')
+    # メールの文面を標準出力
     print(bottle.template('for_user', **session, session_id=session.id))
     bottle.redirect('/identify')
 
@@ -192,6 +205,7 @@ def identify_get():
 @bottle.route('/finish/<key>')
 def finish_get(key=None):
     session = bottle.request.environ.get('beaker.session')
+
     s = SubProcess()
     s.ldifsearch(session)
     print(bottle.template('ldif', **s.isc_ldap, **session))
