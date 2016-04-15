@@ -12,14 +12,14 @@
 ### ファイル構成
 ```
 .
-├── account.py
+├── account.py        # メインのスクリプト
 └── views
-    ├── confirm.tpl
-    ├── finish.tpl
-    ├── for_user.tpl
-    ├── form.tpl
-    ├── identify.tpl
-    └── ldif.tpl
+    ├── confirm.tpl   # 確認画面
+    ├── finish.tpl    # アカウント発行完了
+    ├── for_user.tpl  # 確認メールの文面
+    ├── form.tpl      # 申請フォーム
+    ├── identify.tpl  # 確認メールを送信
+    └── ldif.tpl      # ldifの文面
 ```
 
 ***
@@ -27,4 +27,5 @@
 ### テスト方法
 申請フォーム  
 `$ python ./entry.py`  
-`http://localhost:8080/form`
+
+http://localhost:8080/form
