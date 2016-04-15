@@ -7,8 +7,6 @@
 
 `# pip install bottle beaker pytz`
 
-Uオプションを使うとユーザーのみにインストール可能
-
 ***
 
 ### ファイル構成
