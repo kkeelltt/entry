@@ -1,9 +1,9 @@
 # アカウント申請自動化ツール
 
 ### 使用したサードパーティ製ライブラリ
-* bottle  # Webフレームワーク
-* beaker  # セッションミドルウェア
-* pytz    # タイムゾーン
+* bottle (Webフレームワーク)
+* beaker (セッションミドルウェア)
+* pytz (タイムゾーン)
 
 `# pip install bottle beaker pytz`
 
@@ -12,7 +12,7 @@
 ### ファイル構成
 ```
 .
-├── account.py        # メインのスクリプト
+├── account.py        # メインスクリプト
 └── views
     ├── confirm.tpl   # 確認画面
     ├── finish.tpl    # アカウント発行完了
