@@ -38,13 +38,40 @@ form_keys = [
 ]
 
 
+class Ldap(object):
+    def ldifsearch(self, isc_account):
+        isc_ldap = {
+            'displayName': '',
+            'gecos': '',
+            'employeeNumber': '',
+            'l': '',
+            'mail': '',
+        }
+
+        for key in self.isc_ldap.keys():
+            cmd = '/home/kelt/entry/isc-ldap/ldifsearch'
+            p = Popen([cmd, isc_account, key], stdout=PIPE)
+            if key == 'displayName':
+                self.isc_ldap[key] = b64decode(p.communicate()[0].decode())
+            else:
+                self.isc_ldap[key] = p.communicate()[0].decode()
+
+        self.isc_ldap['gecos_last'] = self.isc_ldap['gecos'].split()[0]
+
+        return isc_ldap
+
+    def ldapsearch(self, club_account):
+        arg = 'uid={club_account}'.format(club_accoun=club_account)
+        return Popen(['ldapsearch', arg], stdout=PIPE).communicate()[0]
+
+
 class Validator(object):
     def wrap_li(self, errors):
         tmp = ''
         for error in errors:
             tmp += '<li>' + error + '</li>'
-        else:
-            return tmp
+
+        return tmp
 
     def check_format(self, data):
         errors = []
@@ -78,6 +105,10 @@ class Validator(object):
         else:
             if not re.match('^[a-z][a-z0-9_]{2,7}$', data['club_account']):
                 errors.append('共用計算機アカウント名が不正です。')
+            else:
+                l = Ldap()
+                if 'numEntries' in l.ldapsearch(data['club_account']):
+                    errors.append('この共用計算機アカウント名は既に使用されています')
         # パスワード
         ptn1 = '^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^a-zA-Z0-9])[ -~]{8,}$'
         ptn2 = '^[ -~]{16,}$'
@@ -99,31 +130,6 @@ class Validator(object):
 
         def check_ldap(self, data):
             pass
-
-
-class SubProcess(object):
-    isc_ldap = {
-        'displayName': '',
-        'gecos': '',
-        'employeeNumber': '',
-        'l': '',
-        'mail': '',
-    }
-
-    def ldifsearch(self, data):
-        for key in self.isc_ldap.keys():
-            cmd = '/home/kelt/entry/isc-ldap/ldifsearch'
-            p = Popen([cmd, data['isc_account'], key], stdout=PIPE)
-            if key == 'displayName':
-                self.isc_ldap[key] = b64decode(p.communicate()[0].decode())
-            else:
-                self.isc_ldap[key] = p.communicate()[0].decode()
-        else:
-            self.isc_ldap['gecos_last'] = self.isc_ldap['gecos'].split()[0]
-
-    def ldapsearch(self, data):
-        arg = 'uid={club_account}'.format(**data)
-        return Popen(['ldapsearch', arg], stdout=PIPE)
 
 
 @bottle.route('/form')
@@ -152,16 +158,13 @@ def form_post():
 
     # バリデーション
     v = Validator()
-    errors = v.check_format(data)
-    if errors:
-        # フォーマットバリデーションエラー
+    error_msg = v.check_format(data)
+    if error_msg:
+        # バリデーションエラー
         return bottle.template('form', display='block',
-                               error_msg=v.wrap_li(errors), **data)
-    elif False:
-        pass
+                               error_msg=v.wrap_li(error_msg), **data)
     else:
-        # バリデーションパス
-        # パスワードの暗号化
+        # バリデーションパス -> パスワードの暗号化
         h = hashlib.sha1()
         h.update(data['password'].encode())
         data['shadow_password'] = '{SHA}' + b64encode(h.digest()).decode()
@@ -182,40 +185,48 @@ def form_post():
         else:
             session['is'] = None
             session.save()
-            # 確認画面にリダイレクト
-            bottle.redirect('/confirm')
+
+        # 確認画面にリダイレクト
+        bottle.redirect('/confirm')
 
 
 @bottle.route('/confirm')
 def confirm_get():
-    session = bottle.request.environ.get('beaker.session')
-    return bottle.template('confirm', **session)
+    try:
+        session = bottle.request.environ.get('beaker.session')
+        session['is']
+        return bottle.template('confirm', **session)
+    except KeyError:
+        return bottle.template('lost_session')
 
 
 @bottle.route('/confirm', method='POST')
 def confirm_post():
-    session = bottle.request.environ.get('beaker.session')
-    # メールの文面を標準出力
-    print(bottle.template('for_user', **session, session_id=session.id))
-    bottle.redirect('/identify')
+    try:
+        session = bottle.request.environ.get('beaker.session')
+        session['is']
+        # メールを送信
+        print(bottle.template('for_user', **session, session_id=session.id))
+        return bottle.template('identify')
+    except KeyError:
+        return bottle.template('lost_session')
 
 
-@bottle.route('/identify')
-def identify_get():
-    return bottle.template('identify')
-
-
-@bottle.route('/finish/<key>')
-def finish_get(key=None):
-    session = bottle.request.environ.get('beaker.session')
-
-    s = SubProcess()
-    s.ldifsearch(session)
-    print(bottle.template('ldif', **s.isc_ldap, **session))
-    # .forward
-    # mailman
-    session.delete()
-    return bottle.template('finish')
+@bottle.route('/finish/<session_id>')
+def finish_get(session_id=None):
+    try:
+        # セッション情報がある
+        session = bottle.request.environ.get('beaker.session')
+        session['is']
+        l = Ldap()
+        print(bottle.template(
+              'ldif', **l.ldifsearch(session['isc_account']), **session))
+        # .forward
+        # mailman
+        session.delete()
+        return bottle.template('finish')
+    except KeyError:
+        return bottle.template('lost_session')
 
 
 if __name__ == '__main__':
