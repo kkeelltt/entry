@@ -24,7 +24,7 @@ session_opts = {
     'session.auto': False
 }
 
-keys = [
+form_keys = [
     'name_last',
     'name_first',
     'name_last_kana',
@@ -36,6 +36,69 @@ keys = [
     'password_confirm',
     'agreement'
 ]
+
+
+class Validator(object):
+    def wrap_li(self, errors):
+        tmp = ''
+        for error in errors:
+            tmp += '<li>' + error + '</li>'
+        else:
+            return tmp
+
+    def check_format(self, data):
+        errors = []
+        # 性
+        if not data['name_last']:
+            errors.append('氏名（性）が未入力です')
+        # 名
+        if not data['name_first']:
+            errors.append('氏名（名）が未入力です')
+        # せい
+        if not data['name_last_kana']:
+            errors.append('ふりがな（せい）が未入力です')
+        # めい
+        if not data['name_first_kana']:
+            errors.append('ふりがな（めい）が未入力です')
+        # 学籍番号
+        if not data['student_number']:
+            errors.append('学生番号が未入力です')
+        else:
+            if not re.match('^[0-9]{8}$', data['student_number']):
+                errors.append('学生番号が不正です。')
+        # ISCアカウント
+        if not data['isc_account']:
+            errors.append('情報科学センターアカウント名が未入力です')
+        else:
+            if not re.match('^[a-z][0-9]{6}[a-z]$', data['isc_account']):
+                errors.append('情報科学センターアカウント名が不正です。')
+        # 共用計算機アカウント
+        if not data['club_account']:
+            errors.append('共用計算機アカウント名が未入力です')
+        else:
+            if not re.match('^[a-z][a-z0-9_]{2,7}$', data['club_account']):
+                errors.append('共用計算機アカウント名が不正です。')
+        # パスワード
+        ptn1 = '^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^a-zA-Z0-9])[ -~]{8,}$'
+        ptn2 = '^[ -~]{16,}$'
+        if not data['password']:
+            errors.append('パスワードが未入力です')
+        else:
+            if not (re.match(ptn1, data['password']) or
+                    re.match(ptn2, data['password'])):
+                    errors.append('パスワードが不正です')
+            else:
+                # パスワード（確認）
+                if not data['password'] == data['password_confirm']:
+                    errors.append('パスワードが一致しません。')
+        # 同意チェック
+        if not data['agreement'] == 'checked':
+            errors.append('規約に同意しないとアカウントは申請できません。')
+
+        return errors
+
+        def check_ldap(self, data):
+            pass
 
 
 class SubProcess(object):
@@ -63,88 +126,23 @@ class SubProcess(object):
         return Popen(['ldapsearch', arg], stdout=PIPE)
 
 
-class Validator(object):
-    error_msg = {
-        'display': None,
-        'msg': None
-    }
-
-    error_cases = {
-        'blank': 'フォームに空欄があります。',
-        'student_number': '学生番号が不正です。',
-        'isc_account': '情報科学センターアカウントが不正です。',
-        'club_account': '共用計算機アカウントが不正です。',
-        'password': 'パスワードが不正です。',
-        'password_confirm': 'パスワードが一致しません。',
-        'agreement': '規約に同意しないとアカウントは申請できません。',
-
-        'used': 'このアカウント名は既に使用されています。'
-    }
-
-    def __init__(self):
-        self.error_msg['display'] = 'none'
-        self.error_msg['msg'] = ''
-
-    def default(self, data):
-        errors = []
-        # フォームの空欄
-        for key, value in data.items():
-            if key == 'agreement':
-                pass
-            elif not value:
-                errors.append(self.error_cases['blank'])
-                break
-        # 学籍番号
-        if not re.match('^[0-9]{8}$', data['student_number']):
-            errors.append(self.error_cases['student_number'])
-        # ISCアカウント
-        if not re.match('^[a-z][0-9]{6}[a-z]$', data['isc_account']):
-            errors.append(self.error_cases['isc_account'])
-        # 共用計算機アカウント
-        if not re.match('^[a-z][a-z0-9]{2,7}$', data['club_account']):
-            errors.append(self.error_cases['club_account'])
-        # パスワード
-        ptn1 = '^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^a-zA-Z0-9])[ -~]{8,}$'
-        ptn2 = '^[ -~]{16,}$'
-        if not (re.match(ptn1, data['password']) or
-                re.match(ptn2, data['password'])):
-            errors.append(self.error_cases['password'])
-        else:
-            # パスワード（確認）
-            if not data['password'] == data['password_confirm']:
-                errors.append(self.error_cases['password_confirm'])
-        # 同意チェック
-        if not data['agreement'] == 'checked':
-            errors.append(self.error_cases['agreement'])
-        # エラーメッセージをリスト化
-        for error in errors:
-            self.error_msg['msg'] += '<li>' + error + '</li>'
-        # エラーメッセージを表示
-        if self.error_msg['msg']:
-            self.error_msg['display'] = 'block'
-
-        def collate(self):
-            pass
-
-
 @bottle.route('/form')
 def form_get():
-    v = Validator()
     try:
         # セッション情報がある
         session = bottle.request.environ.get('beaker.session')
         session['is']
-        return bottle.template('form', **v.error_msg, **session)
+        return bottle.template('form', display='none', error_msg='', **session)
     except KeyError:
         # セッション情報がない
-        data = {key: '' for key in keys}
-        return bottle.template('form', **v.error_msg, **data)
+        data = {key: '' for key in form_keys}
+        return bottle.template('form', display='none', error_msg='', **data)
 
 
 @bottle.route('/form', method='POST')
 def form_post():
     # ポストデータを取得
-    data = {key: '' for key in keys}
+    data = {key: '' for key in form_keys}
     for key, value in bottle.request.forms.decode().items():
         if 'password' in key:
             # パスワードは生入力を使用
@@ -152,10 +150,15 @@ def form_post():
         else:
             data[key] = value.strip()
 
+    # バリデーション
     v = Validator()
-    if v.validate(data):
-        # バリデーションエラー
-        return bottle.template('form', **v.error_msg, **data)
+    errors = v.check_format(data)
+    if errors:
+        # フォーマットバリデーションエラー
+        return bottle.template('form', display='block',
+                               error_msg=v.wrap_li(errors), **data)
+    elif False:
+        pass
     else:
         # バリデーションパス
         # パスワードの暗号化

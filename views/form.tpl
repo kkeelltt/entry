@@ -11,7 +11,7 @@
     <p>九州工業大学 学生自治ネットワーク委員会 御中</p>
     <p>共用計算機利用規約に同意し、共用計算機 (remote.club.kyutech.ac.jp) のアカウントの発行を申請します。</p>
     <div style="display: {{display}}">
-        <ul>{{!msg}}</ul>
+        <ul>{{!error_msg}}</ul>
     </div>
     <form action="/form" method="POST">
         <fieldset>
@@ -42,12 +42,12 @@
                 <dd><strong>注:以下のすべての条件を満たしてください。</strong></dd>
                 <dd>
                     <ul>
-                    <li>３～８文字のもの</li>
-                    <li>英大文字、記号、全角文字などを含まないもの</li>
-                    <li>先頭に数字を用いていないもの</li>
+                    <li>３〜８文字のもの</li>
+                    <li>使用可能文字：半角英小文字、半角数字、アンダースコア</li>
+                    <li>先頭に数字、アンダースコアを用いていないもの</li>
                     </ul>
                 </dd>
-                <dd><input name="club_account" size="10" value="{{club_account}}">@club.kyutech.ac.jp</dd>
+                <dd><input name="club_account" size="10" value="{{club_account}}"></dd>
                 <dt>パスワード</dt>
                 <dd><strong>注:以下のいずれかの条件を満たしてください。</strong></dd>
                 <dd>
