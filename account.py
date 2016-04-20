@@ -4,11 +4,11 @@
 from base64 import b64decode
 from base64 import b64encode
 from datetime import datetime
-# from email.mime.text import MIMEText
+from email.mime.text import MIMEText
 # from email.utils import formatdate
 import hashlib
 import re
-# from smtplib import SMTP
+import smtplib
 from socket import gethostbyaddr
 from subprocess import PIPE
 from subprocess import Popen
@@ -49,7 +49,7 @@ class Ldap(object):
         }
 
         for key in isc_ldap.keys():
-            cmd = '/home/kelt/entry/isc-ldap/ldifsearch'
+            cmd = '/home/staff/CIA/admin-sys/isc-ldap/ldifsearch'
             p = Popen([cmd, isc_account, key], stdout=PIPE)
             if key == 'displayName':
                 isc_ldap[key] = b64decode(p.communicate()[0].decode())
@@ -105,10 +105,10 @@ class Validator(object):
         else:
             if not re.match('^[a-z][a-z0-9_]{2,7}$', data['club_account']):
                 errors.append('共用計算機アカウント名が不正です。')
-            # else:
-            #    l = Ldap()
-            #    if 'numEntries' in l.ldapsearch(data['club_account']):
-            #        errors.append('この共用計算機アカウント名は既に使用されています')
+            else:
+                l = Ldap()
+                if 'numEntries' in l.ldapsearch(data['club_account']):
+                    errors.append('この共用計算機アカウント名は既に使用されています')
         # パスワード
         ptn1 = '^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^a-zA-Z0-9])[ -~]{8,}$'
         ptn2 = '^[ -~]{16,}$'
@@ -193,23 +193,35 @@ def form_post():
 @bottle.route('/confirm')
 def confirm_get():
     try:
+        # セッション情報がある
         session = bottle.request.environ.get('beaker.session')
         session['is']
         return bottle.template('confirm', **session)
     except KeyError:
+        # セッション情報がない
         return bottle.template('lost')
 
 
 @bottle.route('/confirm', method='POST')
 def confirm_post():
     try:
+        # セッション情報がある
         session = bottle.request.environ.get('beaker.session')
         session['is']
 
         # メールを送信
-        print(bottle.template('for_user', **session, session_id=session.id))
-        return bottle.template('identify')
+        for_user = bottle.template('for_user', session_id=session.id,
+                                   **session)
+        msg = MIMEText(for_user)
+        msg['Subject'] = 'Account request validation'
+        msg['From'] = 'kelt@club.kyutech.ac.jp'
+        msg['To'] = 'lan2014@club.kyutech.ac.jp'
+        smtp = smtplib.SMTP('mail.club.kyutech.ac.jp')
+        smtp.send_message(msg)
+        smtp.quit()
+        return bottle.template('finish')
     except KeyError:
+        # セッション情報がない
         return bottle.template('lost')
 
 
@@ -218,11 +230,18 @@ def finish_get(session_id=None):
     session = bottle.request.environ.get('beaker.session')
     session['is']
     try:
+        # セッション情報がある
         if (session_id == session.id) and (session['is'] == ''):
             # セッションIDが正しい
             l = Ldap()
+            isc_ldap = l.ldifsearch(session['isc_account'])
             ldif = bottle.template('ldif',
-                                   **l.ldifsearch(session['isc_account']),
+                                   displayName=isc_ldap['displayName'],
+                                   gecos=isc_ldap['gecos'],
+                                   gecos_last=isc_ldap['gecos_last'],
+                                   employeeNumber=isc_ldap['employeeNumber'],
+                                   l=isc_ldap['l'],
+                                   mail=isc_ldap['mail'],
                                    **session)
             print(ldif)
             # ldapentry
@@ -231,11 +250,14 @@ def finish_get(session_id=None):
             # session.delete()
             session['is'] = 'finished'
             session.save()
-            return bottle.template('finish',
-                                   msg='共用計算機アカウントの申請が完了しました。')
+            return bottle.template(
+                'finish',
+                body='共用計算機アカウントの申請が完了しました。')
         else:
-            return bottle.template('finish',
-                                   msg='共用計算機アカウントの申請は完了しています。')
+            # セッション情報がない
+            return bottle.template(
+                'finish',
+                body='共用計算機アカウントの申請は完了しています。')
     except KeyError:
         return bottle.template('lost')
 
