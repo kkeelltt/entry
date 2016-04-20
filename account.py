@@ -243,7 +243,6 @@ def finish_get(session_id=None):
                                    l=isc_ldap['l'],
                                    mail=isc_ldap['mail'],
                                    **session)
-            print(ldif)
             # ldapentry
             # .forward
             # mailman
@@ -252,7 +251,8 @@ def finish_get(session_id=None):
             session.save()
             return bottle.template(
                 'finish',
-                body='共用計算機アカウントの申請が完了しました。')
+                # body='共用計算機アカウントの申請が完了しました。')
+                body=ldif)
         else:
             # セッション情報がない
             return bottle.template(
