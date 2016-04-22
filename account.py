@@ -5,7 +5,6 @@ from base64 import b64decode
 from base64 import b64encode
 from datetime import datetime
 from email.mime.text import MIMEText
-# from email.utils import formatdate
 import hashlib
 import re
 import smtplib
@@ -62,7 +61,15 @@ class Ldap(object):
 
     def ldapsearch(self, club_account):
         arg = 'uid={club_account}'.format(club_account=club_account)
-        return Popen(['ldapsearch', arg], stdout=PIPE).communicate()[0]
+        p1 = Popen(['ldapsearch', arg], stdout=PIPE)
+        p2 = Popen(['grep', 'numEntries'],
+                   stdin=p1.stdout, stdout=PIPE)
+        p1.stdout.close()
+        return p2.communicate()[0]
+
+    def ldapentry(self, club_account):
+        # Popen(['mars.sh'])
+        pass
 
 
 class Validator(object):
@@ -107,7 +114,7 @@ class Validator(object):
                 errors.append('共用計算機アカウント名が不正です。')
             else:
                 l = Ldap()
-                if 'numEntries' in l.ldapsearch(data['club_account']):
+                if l.ldapsearch(data['club_account']):
                     errors.append('この共用計算機アカウント名は既に使用されています')
         # パスワード
         ptn1 = '^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^a-zA-Z0-9])[ -~]{8,}$'
@@ -243,7 +250,10 @@ def finish_get(session_id=None):
                                    l=isc_ldap['l'],
                                    mail=isc_ldap['mail'],
                                    **session)
-            # ldapentry
+            f = open('./ldif/{club_account}'.format(**session), 'w')
+            f.write(ldif)
+            f.close()
+            l.ldapentry(session['club_account'])
             # .forward
             # mailman
             # session.delete()
@@ -251,8 +261,7 @@ def finish_get(session_id=None):
             session.save()
             return bottle.template(
                 'finish',
-                # body='共用計算機アカウントの申請が完了しました。')
-                body=ldif)
+                body='共用計算機アカウントの申請が完了しました。')
         else:
             # セッション情報がない
             return bottle.template(
@@ -264,4 +273,4 @@ def finish_get(session_id=None):
 
 if __name__ == '__main__':
     app = SessionMiddleware(bottle.app(), session_opts)
-    bottle.run(app=app, host='localhost', port=8080, debug=True, reloader=True)
+    bottle.run(app=app, host='localhost', port=20000, debug=True, reloader=True)

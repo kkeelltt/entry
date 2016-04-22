@@ -6,7 +6,7 @@
 </head>
 
 <body>
-<p>{{msg}}</p>
+<p>{{body}}</p>
 </body>
 
 </html>
