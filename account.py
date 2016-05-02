@@ -73,7 +73,7 @@ class Ldap(object):
 
 
 class Validator(object):
-    def wrap_li(self, errors):
+    def wrap(self, errors):
         tmp = ''
         for error in errors:
             tmp += '<li>' + error + '</li>'
@@ -115,7 +115,7 @@ class Validator(object):
             else:
                 l = Ldap()
                 if l.ldapsearch(data['club_account']):
-                    errors.append('この共用計算機アカウント名は既に使用されています')
+                    errors.append('この共用計算機アカウント名は利用できません')
         # パスワード
         ptn1 = '^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[^a-zA-Z0-9])[ -~]{8,}$'
         ptn2 = '^[ -~]{16,}$'
@@ -169,7 +169,7 @@ def form_post():
     if error_msg:
         # バリデーションエラー
         return bottle.template('form', display='block',
-                               error_msg=v.wrap_li(error_msg), **data)
+                               error_msg=v.wrap(error_msg), **data)
     else:
         # バリデーションパス -> パスワードの暗号化
         h = hashlib.sha1()
@@ -250,9 +250,9 @@ def finish_get(session_id=None):
                                    l=isc_ldap['l'],
                                    mail=isc_ldap['mail'],
                                    **session)
-            f = open('./ldif/{club_account}'.format(**session), 'w')
-            f.write(ldif)
-            f.close()
+            with open('./ldif/{club_account}'.format(**session), 'w') as ldif:
+                ldif.write(ldif)
+
             l.ldapentry(session['club_account'])
             # .forward
             # mailman
